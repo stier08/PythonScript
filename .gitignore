@@ -17,6 +17,7 @@
 *.vcxproj.user
 *.sdf
 *.opensdf
+.vs/
 BuildLog.htm
 bin/
 obj/

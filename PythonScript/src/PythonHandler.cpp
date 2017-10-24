@@ -297,12 +297,32 @@ void PythonHandler::runScriptWorker(const std::shared_ptr<RunScriptArgs>& args)
 		// from the Python API developers. 
 		// We also assume the second parameter, "r" won't be modified by the function call.
 		//lint -e{1776}  Converting a string literal to char * is not const safe (arg. no. 2)
-		PyObject* pyFile = PyFile_FromString(const_cast<char *>(args->m_filename.c_str()), "r");
-
-		if (pyFile)
+		PyObject* pyio = PyImport_ImportModule("io");
+		if (pyio)
 		{
-			PyRun_SimpleFile(PyFile_AsFile(pyFile), args->m_filename.c_str());
-			Py_DECREF(pyFile);			
+			PyObject* pyname = PyUnicode_FromString("open");
+			if(pyname)
+			{
+				PyObject* pyioopen = PyObject_GetAttr(pyio, pyname);
+				if (pyioopen)
+				{
+					PyObject* pyfname = PyUnicode_FromString(const_cast<char *>(args->m_filename.c_str()));
+					PyObject* pyFile = PyObject_Call(pyioopen, pyfname, (PyObject *)0);
+
+					if (pyFile)
+					{
+						FILE* cfile = fopen(const_cast<char *>(args->m_filename.c_str()), "r");
+						PyRun_SimpleFile(cfile, args->m_filename.c_str());
+						Py_DECREF(pyFile);
+					}
+					Py_DECREF(pyioopen);
+				}
+
+				Py_DECREF(pyname);
+			}
+
+			Py_DECREF(pyio);
+
 		}
 	}
 	

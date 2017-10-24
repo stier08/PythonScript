@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="UserMacros">
+    <BoostFileVer>1_65_1</BoostFileVer>
+    <VSVer>VS2017</VSVer>
+    <VSNum>141</VSNum>
+    <BoostVer>1_65_1</BoostVer>
+    <PythonMagorVer>3</PythonMagorVer>
+    <PythonMinorVer>4</PythonMinorVer>
+    <PythonVer>$(PythonMagorVer)$(PythonMinorVer)</PythonVer>
+    <BoostPythonTag>$(PythonMagorVer).$(PythonMinorVer)</BoostPythonTag>
+    <PythonFolder>P:\WinPython-32bit-3.4.4.7Zero\python-3.4.4</PythonFolder>
+    <PythonInclude>$(PythonFolder)\include</PythonInclude>
+    <ThirdPartyLibs>$(SolutionDir)..\lib</ThirdPartyLibs>
+    <BoostFolder>$(ThirdPartyLibs)\boost\boost-$(BoostVer)_$(VSVer)_wp34</BoostFolder>
+    <BoostInclude>$(BoostFolder)\include\boost-$(BoostVer)</BoostInclude>
+    <BoostLib>$(BoostFolder)\lib</BoostLib>
+  </PropertyGroup>
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(PythonInclude);$(BoostInclude);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_BIND_TO_CURRENT_CRT_VERSION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>
+        /DPROP_BoostFileVer=$(BoostFileVer)
+        /DPROP_VSVer=$(VSVer)
+        /DPROP_VSNum=$(VSNum)
+        /DPROP_BoostVer=$(BoostVer)
+        /DPROP_PythonMagorVer=$(PythonMagorVer)
+        /DPROP_PythonMinorVer=$(PythonMinorVer)
+        /DPROP_PythonVer=$(PythonVer)
+        /DPROP_BoostPythonTag=$(BoostPythonTag)
+        /DPROP_PythonFolder=$(PythonFolder)
+        /DPROP_PythonInclude=$(PythonInclude)
+        /DPROP_ThirdPartyLibs=$(ThirdPartyLibs)
+        /DPROP_BoostFolder=$(BoostFolder)
+        /DPROP_BoostInclude=$(BoostInclude)
+        %(AdditionalOptions)
+      </AdditionalOptions>
+    </ClCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(PythonFolder)\libs;$(BoostLib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="BoostFileVer">
+      <Value>$(BoostFileVer)</Value>
+    </BuildMacro>
+  </ItemGroup>
+  <PropertyGroup Label="Configuration">
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+</Project>
