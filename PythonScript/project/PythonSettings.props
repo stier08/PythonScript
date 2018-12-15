@@ -3,7 +3,7 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
     <BoostBase>D:\LIBS\boost\boost-1_68_0_vs2015_wp37</BoostBase>
-    <BoostPythonLibPath>D:\LIBS\boost\boost-1_63_0_vs2015_wp35\lib</BoostPythonLibPath>
+    <BoostPythonLibPath>D:\LIBS\boost\boost-1_68_0_vs2015_wp37\lib</BoostPythonLibPath>
     <PythonBase>E:\portable\app\WinPython-32bit-3.7.1.0\python-3.7.1</PythonBase>
     <PythonBaseX64>l:\code\x64\cpython</PythonBaseX64>
     <PythonLibPath>E:\portable\app\WinPython-32bit-3.7.1.0\python-3.7.1\libs</PythonLibPath>
