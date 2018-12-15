@@ -84,6 +84,7 @@ private:
 
 	ConsoleDialog *mp_consoleDlg;
 	
+	boost::python::object m_main_module;
 	boost::python::object m_console;
 	boost::python::object m_pushFunc;
 	boost::python::object m_sys;

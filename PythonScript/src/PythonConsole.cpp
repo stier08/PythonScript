@@ -95,8 +95,8 @@ void PythonConsole::initPython(PythonHandler *pythonHandler)
 		
         GILLock gilLock;
 
-		boost::python::object main_module(boost::python::handle<>(boost::python::borrowed(PyImport_AddModule("__main__"))));
-		boost::python::object main_namespace = main_module.attr("__dict__");
+		m_main_module = boost::python::object (boost::python::handle<>(boost::python::borrowed(PyImport_AddModule("__main__"))));
+		boost::python::object main_namespace = m_main_module.attr("__dict__");
 		
 		// import code
 		boost::python::object code = boost::python::import("code");

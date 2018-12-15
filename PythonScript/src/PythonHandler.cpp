@@ -12,6 +12,146 @@
 #include "GILManager.h"
 #include "ConfigFile.h"
 
+std::string extractStringFromPyStr(PyObject* strObj)
+{
+	std::string ret;
+#  if PY_VERSION_HEX >= 0x03000000
+	PyObject* bytes = PyUnicode_AsUTF8String(strObj);
+	ret = PyBytes_AsString(bytes);
+	if (PyErr_Occurred()) return "";
+	Py_DECREF(bytes);
+#else
+	ret = PyString_AsString(strObj);
+#endif
+	return ret;
+}
+
+bool pyStrCheck(PyObject* strObj)
+{
+#  if PY_VERSION_HEX >= 0x03000000
+	return PyUnicode_Check(strObj);
+#else
+	return PyString_Check(strObj);
+#endif
+
+}
+
+std::string getPythonErrorString()
+{
+	// Extra paranoia...
+	if (!PyErr_Occurred())
+	{
+		return "No Python error";
+	}
+
+	PyObject *type, *value, *traceback;
+	PyErr_Fetch(&type, &value, &traceback);
+	PyErr_Clear();
+
+	std::string message = "Python error: ";
+	if (type)
+	{
+		type = PyObject_Str(type);
+
+		message += extractStringFromPyStr(type);
+	}
+
+	if (value)
+	{
+		value = PyObject_Str(value);
+		message += ": ";
+		message += extractStringFromPyStr(value);
+	}
+
+	Py_XDECREF(type);
+	Py_XDECREF(value);
+	Py_XDECREF(traceback);
+
+	return message;
+}
+
+/*
+Modeled after a function from Mark Hammond.
+
+Obtains a string from a Python traceback.  This is the exact same string as
+"traceback.print_exception" would return.
+
+Result is a string which must be free'd using PyMem_Free()
+*/
+#define TRACEBACK_FETCH_ERROR(what) {errMsg = what; goto done;}
+
+std::string PyTracebackToString(void)
+{
+	std::string errMsg; /* holds a local error message */
+	std::string result; /* a valid, allocated result. */
+
+	PyObject *modStringIO = NULL;
+	PyObject *modTB = NULL;
+	PyObject *obStringIO = NULL;
+	PyObject *obResult = NULL;
+
+	PyObject *type, *value, *traceback;
+
+	PyErr_Fetch(&type, &value, &traceback);
+	PyErr_NormalizeException(&type, &value, &traceback);
+
+#  if PY_VERSION_HEX >= 0x03000000
+	modStringIO = PyImport_ImportModule("io");
+#else
+	modStringIO = PyImport_ImportModule("cStringIO");
+#endif
+
+	if (modStringIO == NULL)
+		TRACEBACK_FETCH_ERROR("cant import cStringIO\n");
+
+	obStringIO = PyObject_CallMethod(modStringIO, "StringIO", NULL);
+
+	/* Construct a cStringIO object */
+	if (obStringIO == NULL)
+		TRACEBACK_FETCH_ERROR("cStringIO.StringIO() failed\n");
+
+	modTB = PyImport_ImportModule("traceback");
+	if (modTB == NULL)
+		TRACEBACK_FETCH_ERROR("cant import traceback\n");
+
+	obResult = PyObject_CallMethod(modTB, "print_exception",
+		"OOOOO",
+		type, value ? value : Py_None,
+		traceback ? traceback : Py_None,
+		Py_None,
+		obStringIO);
+
+	if (obResult == NULL)
+		TRACEBACK_FETCH_ERROR("traceback.print_exception() failed\n");
+	Py_DECREF(obResult);
+
+	obResult = PyObject_CallMethod(obStringIO, "getvalue", NULL);
+	if (obResult == NULL)
+		TRACEBACK_FETCH_ERROR("getvalue() failed.\n");
+
+	/* And it should be a string all ready to go - duplicate it. */
+	if (!pyStrCheck(obResult))
+		TRACEBACK_FETCH_ERROR("getvalue() did not return a string\n");
+
+	result = extractStringFromPyStr(obResult);
+done:
+
+	/* All finished - first see if we encountered an error */
+	if (result.empty() && errMsg.size()) {
+		result = errMsg;
+	}
+
+	Py_XDECREF(modStringIO);
+	Py_XDECREF(modTB);
+	Py_XDECREF(obStringIO);
+	Py_XDECREF(obResult);
+	Py_XDECREF(value);
+	Py_XDECREF(traceback);
+	Py_XDECREF(type);
+
+	return result;
+}
+
 namespace NppPythonScript
 {
 
@@ -86,7 +226,7 @@ void PythonHandler::initPython()
 	if (Py_IsInitialized())
 		return;
 
-
+	DEBUG_TRACE("PythonHandler::initPython");
 	preinitScintillaModule();
 
 	// Don't import site - if Python 2.7 doesn't find it as part of Py_Initialize,
@@ -285,9 +425,10 @@ void PythonHandler::runScriptWorker(const std::shared_ptr<RunScriptArgs>& args)
 {
 
     GILLock gilLock;
-
+	DEBUG_TRACE("PythonHandler::runScriptWorker");
 	if (args->m_isStatement)
 	{
+		DEBUG_TRACE("PythonHandler::runScriptWorker - 1");
 		if (PyRun_SimpleString(WcharMbcsConverter::tchar2char(args->m_filename.c_str()).get()) == -1)
 		{
 			if (ConfigFile::getInstance()->getSetting(_T("ADDEXTRALINETOOUTPUT")) == _T("1"))
@@ -303,6 +444,7 @@ void PythonHandler::runScriptWorker(const std::shared_ptr<RunScriptArgs>& args)
 	}
 	else
 	{
+		DEBUG_TRACE("PythonHandler::runScriptWorker - 2");
 		std::shared_ptr<char> filenameUFT8 = WcharMbcsConverter::tchar2char(args->m_filename.c_str());
 
 		if (containsExtendedChars(filenameUFT8.get()))
@@ -331,36 +473,59 @@ void PythonHandler::runScriptWorker(const std::shared_ptr<RunScriptArgs>& args)
 		// We also assume the second parameter, "r" won't be modified by the function call.
 		//lint -e{1776}  Converting a string literal to char * is not const safe (arg. no. 2)
 		PyObject* pyio = PyImport_ImportModule("io");
-
+		DEBUG_TRACE(filenameUFT8.get());
 		if (pyio)
 		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - pyio - OK");
 			PyObject* pyname = PyUnicode_FromString("open");
 			if (pyname)
 			{
+				DEBUG_TRACE("PythonHandler::runScriptWorker - pyname - OK");
 				PyObject* pyioopen = PyObject_GetAttr(pyio, pyname);
 				if (pyioopen)
 				{
+					DEBUG_TRACE("PythonHandler::runScriptWorker - pyioopen - OK");
 					PyObject* pyfname = PyUnicode_FromString(filenameUFT8.get());
-					PyObject* pyFile = PyObject_Call(pyioopen, pyfname, (PyObject *)0);
-					
-						if (pyFile)
-						{
-							FILE* cfile = fopen(filenameUFT8.get(), "r");
-							int pyret= PyRun_SimpleFile(cfile, filenameUFT8.get());
-							if (pyret == -1)
-							{
-								if (ConfigFile::getInstance()->getSetting(_T("ADDEXTRALINETOOUTPUT")) == _T("1"))
-								{
-									mp_console->writeText(boost::python::str("\n"));
-								}
+					if (pyfname)
+					{
+						DEBUG_TRACE("PythonHandler::runScriptWorker - pyfname - OK");
+					}
+					PyObject* pyArg = PyTuple_New(0);
+					if (pyArg)
+					{
+						DEBUG_TRACE("PythonHandler::runScriptWorker - pyArg - OK");
+					}
+					PyObject* pyFile = PyObject_Call(pyioopen, pyfname, pyArg);
 
-								if (ConfigFile::getInstance()->getSetting(_T("OPENCONSOLEONERROR")) == _T("1"))
-								{
-									mp_console->pythonShowDialog();
-								}
+					FILE* cfile = fopen(filenameUFT8.get(), "r");
+					if (cfile)
+					{
+						DEBUG_TRACE("PythonHandler::runScriptWorker - cfile - OK");
+					}
+					if (cfile)
+					{
+						DEBUG_TRACE("PythonHandler::runScriptWorker - pyFile - OK");
+
+						int pyret= PyRun_SimpleFile(cfile, filenameUFT8.get());
+						DEBUG_TRACE("PythonHandler::runScriptWorker - PyRun_SimpleFile - Done");
+						if (pyret == -1)
+						{
+							DEBUG_TRACE("PythonHandler::runScriptWorker - pyret - -1");
+							if (ConfigFile::getInstance()->getSetting(_T("ADDEXTRALINETOOUTPUT")) == _T("1"))
+							{
+								mp_console->writeText(boost::python::str("\n"));
 							}
 
+							if (ConfigFile::getInstance()->getSetting(_T("OPENCONSOLEONERROR")) == _T("1"))
+							{
+								mp_console->pythonShowDialog();
+							}
+						}
+						if (pyFile)
+						{
 							Py_DECREF(pyFile);
+						}
+						Py_DECREF(pyArg);
 						}
 					Py_DECREF(pyioopen);
 				}
@@ -368,12 +533,103 @@ void PythonHandler::runScriptWorker(const std::shared_ptr<RunScriptArgs>& args)
 			}
 				Py_DECREF(pyio);
 		}
+		else
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - pyio - ERROR");
+		}
 	}
+
+
+
+	try
+	{
+		PyObject *py_main, *py_dict;
+		py_main = PyImport_AddModule("__main__");
+
+		if (py_main)
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - py_main - OK");
+		}
+		else
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - py_main - ERROR");
+			std::string s = PyTracebackToString();
+			DEBUG_TRACE(s.c_str());
+
+		}
+
+		py_dict = PyModule_GetDict(py_main);
+
+		if (py_dict)
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - py_dict - OK");
+		}
+		else
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - py_dict - ERROR");
+			std::string s = PyTracebackToString();
+			DEBUG_TRACE(s.c_str());
+
+		}
+
+		PyObject*  obj1=PyRun_String("open(r'd:\temp\b.txt','w').write('x')",
+			Py_file_input,
+			py_dict,
+			py_dict
+		);
+
+		if (obj1)
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - obj1 - OK");
+		}
+		else
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - obj1 - ERROR");
+			std::string s = PyTracebackToString();
+			DEBUG_TRACE(s.c_str());
+
+		}
+
+		PyObject*  obj2 = PyRun_String("\n",
+			Py_file_input,
+			py_dict,
+			py_dict
+		);
+
+		if (obj2)
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - obj2 - OK");
+		}
+		else
+		{
+			DEBUG_TRACE("PythonHandler::runScriptWorker - obj2 - ERROR");
+			std::string s = PyTracebackToString();
+			DEBUG_TRACE(s.c_str());
+
+		}
+
+		DEBUG_TRACE("PythonHandler::runScriptWorker - PyRun_String - 4x");
+		PyRun_String("open(r'd:\temp\b.txt','w').write('x')",
+
+			Py_file_input,
+			PyDict_New(),
+			PyDict_New()
+		);
+		DEBUG_TRACE("PythonHandler::runScriptWorker - PyRun_String - 5x");
+	}
+	catch (...)
+	{
+		std::string s = PyTracebackToString();
+		DEBUG_TRACE(s.c_str());
+	}
+
+
 
 	if (NULL != args->m_completedEvent)
 	{
 		SetEvent(args->m_completedEvent);
 	}
+	DEBUG_TRACE("PythonHandler::runScriptWorker - END");
 }
 
 void PythonHandler::notify(SCNotification *notifyCode)
