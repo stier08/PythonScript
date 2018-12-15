@@ -14,6 +14,7 @@
     <ThirdPartyLibs>$(SolutionDir)..\lib</ThirdPartyLibs>
     <BoostFolder>$(ThirdPartyLibs)\boost\boost-$(BoostVer)_$(VSVer)_wp34</BoostFolder>
     <BoostInclude>$(BoostFolder)\include\boost-$(BoostVer)</BoostInclude>
+    <NPPInclude>D:\Soft\npp.7.5.1.bin\NppExec</NPPInclude>
     <BoostLib>$(BoostFolder)\lib</BoostLib>
   </PropertyGroup>
   <PropertyGroup>
@@ -21,7 +22,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(PythonInclude);$(BoostInclude);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(NPPInclude);$(PythonInclude);$(BoostInclude);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_BIND_TO_CURRENT_CRT_VERSION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>
         /DPROP_BoostFileVer=$(BoostFileVer)

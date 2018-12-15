@@ -29,9 +29,6 @@
     <ClInclude Include="..\include\Common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\Notepad_plus_msgs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\PluginInterface.h">
       <Filter>Header Files</Filter>
     </ClInclude>
