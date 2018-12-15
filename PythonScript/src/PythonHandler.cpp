@@ -330,23 +330,44 @@ void PythonHandler::runScriptWorker(const std::shared_ptr<RunScriptArgs>& args)
 		// from the Python API developers.
 		// We also assume the second parameter, "r" won't be modified by the function call.
 		//lint -e{1776}  Converting a string literal to char * is not const safe (arg. no. 2)
-		PyObject* pyFile = PyFile_FromString(filenameUFT8.get(), "r");
+		PyObject* pyio = PyImport_ImportModule("io");
 
-		if (pyFile)
+		if (pyio)
 		{
-			if (PyRun_SimpleFile(PyFile_AsFile(pyFile), filenameUFT8.get()) == -1)
+			PyObject* pyname = PyUnicode_FromString("open");
+			if (pyname)
 			{
-				if (ConfigFile::getInstance()->getSetting(_T("ADDEXTRALINETOOUTPUT")) == _T("1"))
+				PyObject* pyioopen = PyObject_GetAttr(pyio, pyname);
+				if (pyioopen)
 				{
-					mp_console->writeText(boost::python::str("\n"));
-				}
+					std::shared_ptr<char> fnamechar = WcharMbcsConverter::wchar2char(args->m_filename.c_str());
+					PyObject* pyfname = PyUnicode_FromString(fnamechar.get());
+					PyObject* pyFile = PyObject_Call(pyioopen, pyfname, (PyObject *)0);
+					
+						if (pyFile)
+						{
+							FILE* cfile = fopen(fnamechar.get(), "r");
+							int pyret= PyRun_SimpleFile(cfile, fnamechar.get());
+							if (pyret == -1)
+							{
+								if (ConfigFile::getInstance()->getSetting(_T("ADDEXTRALINETOOUTPUT")) == _T("1"))
+								{
+									mp_console->writeText(boost::python::str("\n"));
+								}
 
-				if (ConfigFile::getInstance()->getSetting(_T("OPENCONSOLEONERROR")) == _T("1"))
-				{
-					mp_console->pythonShowDialog();
+								if (ConfigFile::getInstance()->getSetting(_T("OPENCONSOLEONERROR")) == _T("1"))
+								{
+									mp_console->pythonShowDialog();
+								}
+							}
+
+							Py_DECREF(pyFile);
+						}
+					Py_DECREF(pyioopen);
 				}
+					Py_DECREF(pyname);
 			}
-			Py_DECREF(pyFile);
+				Py_DECREF(pyio);
 		}
 	}
 
