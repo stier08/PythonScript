@@ -340,14 +340,13 @@ void PythonHandler::runScriptWorker(const std::shared_ptr<RunScriptArgs>& args)
 				PyObject* pyioopen = PyObject_GetAttr(pyio, pyname);
 				if (pyioopen)
 				{
-					std::shared_ptr<char> fnamechar = WcharMbcsConverter::wchar2char(args->m_filename.c_str());
-					PyObject* pyfname = PyUnicode_FromString(fnamechar.get());
+					PyObject* pyfname = PyUnicode_FromString(filenameUFT8.get());
 					PyObject* pyFile = PyObject_Call(pyioopen, pyfname, (PyObject *)0);
 					
 						if (pyFile)
 						{
-							FILE* cfile = fopen(fnamechar.get(), "r");
-							int pyret= PyRun_SimpleFile(cfile, fnamechar.get());
+							FILE* cfile = fopen(filenameUFT8.get(), "r");
+							int pyret= PyRun_SimpleFile(cfile, filenameUFT8.get());
 							if (pyret == -1)
 							{
 								if (ConfigFile::getInstance()->getSetting(_T("ADDEXTRALINETOOUTPUT")) == _T("1"))
