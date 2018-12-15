@@ -798,7 +798,7 @@ BOOST_PYTHON_MODULE(Npp)
 
 void preinitScintillaModule()
 {
-	PyImport_AppendInittab("Npp", &initNpp);
+	PyImport_AppendInittab("Npp", &PyInit_Npp);
 }
 
 void importScintilla(boost::shared_ptr<ScintillaWrapper> editor, boost::shared_ptr<ScintillaWrapper> editor1, boost::shared_ptr<ScintillaWrapper> editor2)
